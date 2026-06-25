@@ -3,15 +3,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Package } from '@prisma/client'
 
-export default async function Home() {
+// Add searchParams prop
+export default async function Home({ searchParams }: { searchParams: { mac?: string } }) {
   const packages: Package[] = await prisma.package.findMany()
+  const mac = searchParams.mac || ''
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-100">
       {/* Header Banner with Logo */}
       <div className="w-full bg-gradient-to-r from-gray-600 to-gray-700 py-6 px-4 shadow-lg">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4">
-          {/* Logo */}
           <div className="flex-shrink-0">
             <Image
               src="/OBEM logo Transparent-01.png"
@@ -20,7 +21,6 @@ export default async function Home() {
               height={370}
             />
           </div>
-          {/* Text */}
           <div className="text-center sm:text-left">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
               WiFi <span className="text-yellow-300">Ya Jero</span>
@@ -40,9 +40,8 @@ export default async function Home() {
             return (
               <div
                 key={pkg.id}
-                className={`relative bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-3xl border ${
-                  isPopular ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-200'
-                }`}
+                className={`relative bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-3xl border ${isPopular ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-200'
+                  }`}
               >
                 {isPopular && (
                   <div className="absolute top-0 right-0 bg-yellow-500 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-bl-2xl">
@@ -75,7 +74,7 @@ export default async function Home() {
                       </span>
                     ) : (
                       <Link
-                        href={`/pay?package=${pkg.id}`}
+                        href={`/pay?package=${pkg.id}&mac=${mac}`}
                         className="block w-full text-center font-semibold py-3 rounded-2xl transition-colors bg-gray-800 hover:bg-gray-900 text-white"
                       >
                         Chagua
@@ -88,9 +87,8 @@ export default async function Home() {
           })}
         </div>
 
-        {/* Footer */}
         <div className="mt-12 text-center text-gray-500 text-xs sm:text-sm">
-          <p>Malipo salama kupitia ClickPesa • Pata kitambulisho chako kwa SMS</p>
+          <p>Developed by Little Giddy</p>
           <p className="mt-1">© 2026 WiFi Ya Jero. Haki zote zimehifadhiwa.</p>
         </div>
       </div>
