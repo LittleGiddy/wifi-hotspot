@@ -1,52 +1,52 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import axios from 'axios'
-import { CLICKPESA_API_KEY, CLICKPESA_BASE_URL } from '@/lib/env'
 
 export async function POST(req: Request) {
   try {
-    // 1. Get the raw request body
-    const rawBody = await req.text()
-    const payload = JSON.parse(rawBody)
+    const payload = await req.json()
+    
+    // Extract payment data (adjust field names to match ClickPesa's webhook payload)
+    const {
+      orderReference,  // Your transaction ID
+      status,          // 'success', 'failed', 'pending'
+      amount,
+      customerPhone,
+    } = payload
 
-    // 2. Extract transaction details (adjust keys to match ClickPesa's actual payload)
-    const { transaction_id, status, amount, customer_phone } = payload
-
-    // 3. (Optional but recommended) Verify the transaction with ClickPesa
-    //    This ensures the webhook is genuine, even without a signature.
-    const verification = await axios.get(
-      `${CLICKPESA_BASE_URL}/payment/status/${transaction_id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${CLICKPESA_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-
-    // If the transaction is not confirmed as "success", reject the webhook
-    if (verification.data.status !== 'success') {
-      console.warn(`Transaction ${transaction_id} not confirmed by ClickPesa`)
+    if (!orderReference || !status) {
       return NextResponse.json(
-        { error: 'Transaction not confirmed' },
+        { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // 4. Update the payment record in your database
-    const payment = await prisma.payment.update({
-      where: { transactionId: transaction_id },
+    // Find the payment
+    const payment = await prisma.payment.findUnique({
+      where: { transactionId: orderReference },
+      include: { customer: true, package: true },
+    })
+
+    if (!payment) {
+      return NextResponse.json(
+        { error: 'Payment not found' },
+        { status: 404 }
+      )
+    }
+
+    // Update payment status
+    const updatedPayment = await prisma.payment.update({
+      where: { id: payment.id },
       data: { status: status === 'success' ? 'success' : 'failed' },
     })
 
-    // 5. If payment was successful, create a pending activation
+    // If payment successful, create pending activation
     if (status === 'success') {
       // Check if activation already exists (idempotency)
       const existingActivation = await prisma.activation.findFirst({
         where: {
           customerId: payment.customerId,
           packageId: payment.packageId,
-          status: 'pending',
+          status: { in: ['pending', 'active'] },
         },
       })
 
@@ -58,10 +58,10 @@ export async function POST(req: Request) {
             status: 'pending',
           },
         })
+        console.log(`✅ Activation created for MAC: ${payment.customer.macAddress}`)
       }
     }
 
-    // 6. Return a successful response to ClickPesa
     return NextResponse.json({ received: true })
   } catch (error: any) {
     console.error('Webhook error:', error.message)
