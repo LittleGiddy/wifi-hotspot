@@ -8,7 +8,6 @@ import {
   NEXT_PUBLIC_APP_URL,
 } from '@/lib/env'
 
-// Helper: format phone number for ClickPesa
 function formatPhone(phone: string): string {
   let cleaned = phone.replace(/\D/g, '')
   if (cleaned.startsWith('0')) {
@@ -24,7 +23,6 @@ export async function POST(req: Request) {
   const { packageId, phone, macAddress } = await req.json()
 
   try {
-    // 1. Get package
     const pkg = await prisma.package.findUnique({
       where: { id: packageId },
     })
@@ -32,7 +30,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Package not found' }, { status: 404 })
     }
 
-    // 2. Find or create customer
     let customer = await prisma.customer.findUnique({
       where: { macAddress },
     })
@@ -42,8 +39,9 @@ export async function POST(req: Request) {
       })
     }
 
-    // 3. Create pending payment
-    const transactionId = `txn_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    // ✅ Generate alphanumeric reference only
+    const transactionId = `txn${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+
     const payment = await prisma.payment.create({
       data: {
         transactionId,
@@ -54,7 +52,7 @@ export async function POST(req: Request) {
       },
     })
 
-    // 4. Generate ClickPesa token
+    // Generate ClickPesa token
     const tokenResponse = await axios.post(
       `${CLICKPESA_BASE_URL}/third-parties/generate-token`,
       {},
@@ -71,7 +69,6 @@ export async function POST(req: Request) {
       throw new Error('Failed to generate ClickPesa token')
     }
 
-    // 5. Generate checkout link
     const formattedPhone = formatPhone(phone)
 
     const checkoutResponse = await axios.post(
@@ -79,7 +76,7 @@ export async function POST(req: Request) {
       {
         totalPrice: pkg.price.toString(),
         orderReference: transactionId,
-        orderCurrency: "TZS", // ✅ Required field
+        orderCurrency: 'TZS',
         customerName: 'WiFi Customer',
         customerEmail: `customer_${customer.id}@example.com`,
         customerPhone: formattedPhone,
