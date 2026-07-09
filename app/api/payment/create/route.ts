@@ -8,6 +8,21 @@ import {
   NEXT_PUBLIC_APP_URL,
 } from '@/lib/env'
 
+// Helper: format phone number for ClickPesa (remove leading zero, add country code if missing)
+function formatPhone(phone: string): string {
+  // Remove any non-digit characters
+  let cleaned = phone.replace(/\D/g, '')
+  // If starts with 0, remove it (e.g., 0769999902 -> 769999902)
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1)
+  }
+  // If doesn't start with 255, add it (Tanzania country code)
+  if (!cleaned.startsWith('255')) {
+    cleaned = '255' + cleaned
+  }
+  return cleaned
+}
+
 export async function POST(req: Request) {
   const { packageId, phone, macAddress } = await req.json()
 
@@ -54,12 +69,14 @@ export async function POST(req: Request) {
       }
     )
 
-    const token = tokenResponse.data.token
+    const token = tokenResponse.data.token // Already includes "Bearer " prefix
     if (!token) {
       throw new Error('Failed to generate ClickPesa token')
     }
 
     // 5. Generate checkout link
+    const formattedPhone = formatPhone(phone)
+
     const checkoutResponse = await axios.post(
       `${CLICKPESA_BASE_URL}/third-parties/checkout-link/generate-checkout-url`,
       {
@@ -67,14 +84,14 @@ export async function POST(req: Request) {
         orderReference: transactionId,
         customerName: 'WiFi Customer',
         customerEmail: `customer_${customer.id}@example.com`,
-        customerPhone: phone,
+        customerPhone: formattedPhone,
         description: `WiFi Package: ${pkg.name} - ${pkg.durationHours} hours`,
         callbackUrl: `${NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
         // returnUrl: `${NEXT_PUBLIC_APP_URL}/payment-success`, // optional
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: token, // ✅ Use token directly (no extra "Bearer ")
           'Content-Type': 'application/json',
         },
       }
