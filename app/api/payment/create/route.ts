@@ -8,15 +8,12 @@ import {
   NEXT_PUBLIC_APP_URL,
 } from '@/lib/env'
 
-// Helper: format phone number for ClickPesa (remove leading zero, add country code if missing)
+// Helper: format phone number for ClickPesa
 function formatPhone(phone: string): string {
-  // Remove any non-digit characters
   let cleaned = phone.replace(/\D/g, '')
-  // If starts with 0, remove it (e.g., 0769999902 -> 769999902)
   if (cleaned.startsWith('0')) {
     cleaned = cleaned.slice(1)
   }
-  // If doesn't start with 255, add it (Tanzania country code)
   if (!cleaned.startsWith('255')) {
     cleaned = '255' + cleaned
   }
@@ -69,7 +66,7 @@ export async function POST(req: Request) {
       }
     )
 
-    const token = tokenResponse.data.token // Already includes "Bearer " prefix
+    const token = tokenResponse.data.token
     if (!token) {
       throw new Error('Failed to generate ClickPesa token')
     }
@@ -82,22 +79,21 @@ export async function POST(req: Request) {
       {
         totalPrice: pkg.price.toString(),
         orderReference: transactionId,
+        orderCurrency: "TZS", // ✅ Required field
         customerName: 'WiFi Customer',
         customerEmail: `customer_${customer.id}@example.com`,
         customerPhone: formattedPhone,
         description: `WiFi Package: ${pkg.name} - ${pkg.durationHours} hours`,
         callbackUrl: `${NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
-        // returnUrl: `${NEXT_PUBLIC_APP_URL}/payment-success`, // optional
       },
       {
         headers: {
-          Authorization: token, // ✅ Use token directly (no extra "Bearer ")
+          Authorization: token,
           'Content-Type': 'application/json',
         },
       }
     )
 
-    // Extract the checkout link from the response
     const checkoutLink = checkoutResponse.data.checkoutLink ||
       checkoutResponse.data.url ||
       checkoutResponse.data.paymentUrl
