@@ -72,17 +72,18 @@ export async function POST(req: Request) {
     const formattedPhone = formatPhone(phone)
 
     const checkoutResponse = await axios.post(
-      `${CLICKPESA_BASE_URL}/third-parties/checkout-link/generate-checkout-url`,
-      {
-        totalPrice: pkg.price.toString(),
-        orderReference: transactionId,
-        orderCurrency: 'TZS',
-        customerName: 'WiFi Customer',
-        customerEmail: `customer_${customer.id}@example.com`,
-        customerPhone: formattedPhone,
-        description: `WiFi Package: ${pkg.name} - ${pkg.durationHours} hours`,
-        callbackUrl: `${NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
-      },
+  `${CLICKPESA_BASE_URL}/third-parties/checkout-link/generate-checkout-url`,
+  {
+    totalPrice: pkg.price.toString(),
+    orderReference: transactionId,
+    orderCurrency: 'TZS',
+    customerName: 'WiFi Customer',
+    customerEmail: `customer_${customer.id}@example.com`,
+    customerPhone: formattedPhone,
+    description: `WiFi Package: ${pkg.name} - ${pkg.durationHours} hours`,
+    callbackUrl: `${NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
+    returnUrl: `${NEXT_PUBLIC_APP_URL}/payment-success`, // ✅ Add this
+  },
       {
         headers: {
           Authorization: token,

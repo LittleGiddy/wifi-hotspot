@@ -4,53 +4,46 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: Request) {
   try {
     const payload = await req.json()
-    
-    // Extract payment data (adjust field names to match ClickPesa's webhook payload)
-    const {
-      orderReference,  // Your transaction ID
-      status,          // 'success', 'failed', 'pending'
-      amount,
-      customerPhone,
-    } = payload
+    console.log('Webhook received:', payload)
 
-    if (!orderReference || !status) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+    // Extract fields – adjust based on ClickPesa's actual payload
+    const { orderReference, status, transactionId } = payload
+
+    // Use orderReference as transactionId
+    const txnId = orderReference || transactionId
+    if (!txnId) {
+      console.error('No orderReference/transactionId in webhook')
+      return NextResponse.json({ error: 'Missing reference' }, { status: 400 })
     }
 
-    // Find the payment
+    // Find payment
     const payment = await prisma.payment.findUnique({
-      where: { transactionId: orderReference },
+      where: { transactionId: txnId },
       include: { customer: true, package: true },
     })
 
     if (!payment) {
-      return NextResponse.json(
-        { error: 'Payment not found' },
-        { status: 404 }
-      )
+      console.error('Payment not found:', txnId)
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
     }
 
     // Update payment status
-    const updatedPayment = await prisma.payment.update({
+    const isSuccess = status === 'success' || status === 'completed'
+    await prisma.payment.update({
       where: { id: payment.id },
-      data: { status: status === 'success' ? 'success' : 'failed' },
+      data: { status: isSuccess ? 'success' : 'failed' },
     })
 
-    // If payment successful, create pending activation
-    if (status === 'success') {
-      // Check if activation already exists (idempotency)
-      const existingActivation = await prisma.activation.findFirst({
+    // If success, create pending activation (if not already exists)
+    if (isSuccess) {
+      const existing = await prisma.activation.findFirst({
         where: {
           customerId: payment.customerId,
           packageId: payment.packageId,
           status: { in: ['pending', 'active'] },
         },
       })
-
-      if (!existingActivation) {
+      if (!existing) {
         await prisma.activation.create({
           data: {
             customerId: payment.customerId,
@@ -59,15 +52,14 @@ export async function POST(req: Request) {
           },
         })
         console.log(`✅ Activation created for MAC: ${payment.customer.macAddress}`)
+      } else {
+        console.log('Activation already exists, skipping.')
       }
     }
 
     return NextResponse.json({ received: true })
   } catch (error: any) {
     console.error('Webhook error:', error.message)
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 })
   }
 }
