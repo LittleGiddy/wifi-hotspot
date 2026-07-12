@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       : '255' + digits
 
     // 4. Create pending payment
-    const transactionId = `txn${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const transactionId = `txn${Date.now().toString(36)}`.slice(0, 20)
     await prisma.payment.create({
       data: {
         transactionId,
