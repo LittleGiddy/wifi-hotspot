@@ -70,7 +70,8 @@ export async function POST(req: Request) {
       }
     )
     console.log('Token response:', JSON.stringify(tokenResponse.data, null, 2))
-    
+
+    // Token already contains "Bearer eyJ..." prefix
     const token = tokenResponse.data.token
     if (!token) {
       throw new Error('Failed to get ClickPesa token')
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       payload,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: token, // token already includes "Bearer " prefix
           'Content-Type': 'application/json',
         },
       }
