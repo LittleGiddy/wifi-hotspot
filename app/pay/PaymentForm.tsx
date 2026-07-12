@@ -1,6 +1,6 @@
 'use client'
 import { useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function PaymentForm() {
   const searchParams = useSearchParams()
@@ -9,7 +9,42 @@ export default function PaymentForm() {
 
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState<'idle' | 'processing' | 'done'>('idle')
+  const [status, setStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle')
+  const [transactionId, setTransactionId] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  // Polling logic
+  useEffect(() => {
+    if (status !== 'processing') return
+
+    let attempts = 0
+    const maxAttempts = 30 // 30 * 2s = 60 seconds timeout
+
+    const interval = setInterval(async () => {
+      attempts++
+      try {
+        const res = await fetch(`/api/payment/status?transactionId=${transactionId}`)
+        const data = await res.json()
+
+        if (data.status === 'success') {
+          clearInterval(interval)
+          setStatus('done')
+        } else if (data.status === 'failed') {
+          clearInterval(interval)
+          setStatus('error')
+          setErrorMessage('Malipo yamekataliwa. Jaribu tena.')
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval)
+          setStatus('error')
+          setErrorMessage('Muda umeisha. Tafadhali hakikisha umeingiza PIN yako.')
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 2000) // Poll every 2 seconds
+
+    return () => clearInterval(interval)
+  }, [status, transactionId])
 
   const handlePay = async () => {
     if (!packageId) {
@@ -26,8 +61,6 @@ export default function PaymentForm() {
     }
 
     setLoading(true)
-    setStatus('processing')
-
     try {
       const res = await fetch('/api/payment/initiate', {
         method: 'POST',
@@ -41,20 +74,23 @@ export default function PaymentForm() {
       const data = await res.json()
 
       if (data.success) {
-        setStatus('done')
+        setTransactionId(data.transactionId)
+        setStatus('processing')
       } else {
-        alert(data.error || 'Imeshindwa kuanzisha malipo. Jaribu tena.')
-        setStatus('idle')
+        setStatus('error')
+        setErrorMessage(data.error || 'Imeshindwa kuanzisha malipo.')
       }
     } catch (error) {
-      alert('Hitilafu. Hakikisha umeunganishwa kwenye intaneti.')
-      setStatus('idle')
+      setStatus('error')
+      setErrorMessage('Hitilafu. Hakikisha umeunganishwa kwenye intaneti.')
     } finally {
       setLoading(false)
     }
   }
 
-  // Done state
+  // ===== RENDER STATES =====
+
+  // Done (success)
   if (status === 'done') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -70,6 +106,25 @@ export default function PaymentForm() {
     )
   }
 
+  // Error state
+  if (status === 'error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center">
+          <div className="text-5xl mb-4">❌</div>
+          <h2 className="text-xl font-bold text-red-600">Hitilafu</h2>
+          <p className="text-gray-600 mt-2">{errorMessage}</p>
+          <button
+            onClick={() => setStatus('idle')}
+            className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl"
+          >
+            Jaribu Tena
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Processing state
   if (status === 'processing') {
     return (
@@ -77,7 +132,11 @@ export default function PaymentForm() {
         <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center">
           <div className="text-5xl mb-4">⏳</div>
           <h2 className="text-xl font-bold text-gray-800">Inasubiri...</h2>
-          <p className="text-gray-600 mt-2">Tafadhali angalia simu yako. Ingiza PIN ili kukamilisha malipo.</p>
+          <p className="text-gray-600 mt-2">
+            Tafadhali angalia simu yako. <br />
+            Ingiza PIN yako ili kukamilisha malipo.
+          </p>
+          <p className="text-sm text-gray-400 mt-4">Usifunge ukurasa huu.</p>
         </div>
       </div>
     )
