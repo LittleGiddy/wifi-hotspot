@@ -30,9 +30,13 @@ export async function POST(req: Request) {
       })
     }
 
-    // 3. Create pending payment
+    // 3. Format phone
+    const formattedPhone = phoneNumber.replace(/^0/, '').replace(/^\+?255/, '')
+    const finalPhone = formattedPhone.startsWith('255') ? formattedPhone : `255${formattedPhone}`
+
+    // 4. Create pending payment
     const transactionId = `txn${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
-    const payment = await prisma.payment.create({
+    await prisma.payment.create({
       data: {
         transactionId,
         amount: pkg.price,
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
       },
     })
 
-    // 4. Generate ClickPesa token
+    // 5. Get ClickPesa token
     const tokenResponse = await axios.post(
       `${CLICKPESA_BASE_URL}/third-parties/generate-token`,
       {},
@@ -53,14 +57,9 @@ export async function POST(req: Request) {
         },
       }
     )
-
     const token = tokenResponse.data.token
 
-    // 5. Format phone
-    const formattedPhone = phoneNumber.replace(/^0/, '').replace(/^\+?255/, '')
-    const finalPhone = formattedPhone.startsWith('255') ? formattedPhone : `255${formattedPhone}`
-
-    // 6. Initiate USSD Push
+    // 6. Send USSD push (auto-detects network)
     const initiateResponse = await axios.post(
       `${CLICKPESA_BASE_URL}/third-parties/payments/initiate-ussd-push-request`,
       {
@@ -78,7 +77,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      transactionId: transactionId,
+      transactionId,
       status: initiateResponse.data.status || 'PROCESSING',
     })
 
