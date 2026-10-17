@@ -44,7 +44,7 @@ export default function PackageList({ packages }: { packages: Package[] }) {
               >
                 {isPopular && (
                   <div className="absolute top-0 right-0 bg-yellow-500 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-bl-2xl">
-                    Coming Soon
+                    Bora
                   </div>
                 )}
                 <div className="p-6 sm:p-8 flex flex-col h-full">
@@ -67,18 +67,12 @@ export default function PackageList({ packages }: { packages: Package[] }) {
                     </p>
                   </div>
                   <div className="mt-6 sm:mt-8">
-                    {isPopular ? (
-                      <span className="block w-full text-center font-semibold py-3 rounded-2xl bg-gray-400 text-white cursor-not-allowed">
-                        Hivi Karibuni
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/pay?package=${pkg.id}&mac=${mac}`}
-                        className="block w-full text-center font-semibold py-3 rounded-2xl transition-colors bg-gray-800 hover:bg-gray-900 text-white"
-                      >
-                        Chagua
-                      </Link>
-                    )}
+                    <Link
+                      href={`/pay?package=${pkg.id}&mac=${mac}`}
+                      className="block w-full text-center font-semibold py-3 rounded-2xl transition-colors bg-gray-800 hover:bg-gray-900 text-white"
+                    >
+                      Chagua
+                    </Link>
                   </div>
                 </div>
               </div>
